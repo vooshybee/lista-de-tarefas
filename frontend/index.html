@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>To-Do API</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Header fixo -->
+    <header>
+      <h1>🚀 To-Do API</h1>
+      <nav>
+        <a href="#sobre">Sobre</a>
+        <a href="#features">Recursos</a>
+        <a href="#api">API</a>
+      </nav>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+      <h2>Gerencie suas tarefas com facilidade</h2>
+      <p>API REST simples com Node.js, Express e banco SQLite/JSON</p>
+    </section>
+
+    <!-- Container centralizado das tarefas -->
+    <section class="task-container">
+      <!-- Adicionar Tarefa -->
+      <div class="task-section">
+        <h2>Adicionar Tarefa</h2>
+        <div class="form">
+          <input id="title" placeholder="Título" />
+          <input id="description" placeholder="Descrição" />
+          <button onclick="addTask()">Adicionar</button>
+        </div>
+      </div>
+
+      <!-- Exemplo de consumo da API / Lista de Tarefas -->
+      <div class="api-section">
+        <h2>Exemplo de consumo da API</h2>
+        <button onclick="loadTasks()">Carregar Tarefas</button>
+        <ul id="tasks"></ul>
+      </div>
+    </section>
+
+    <!-- Grid de recursos -->
+    <section id="features" class="grid">
+      <div class="card">📌 Criar tarefas</div>
+      <div class="card">📋 Listar tarefas</div>
+      <div class="card">✏️ Atualizar & 🗑️ Excluir</div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>Feito para treinar rotas REST | 2025</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+      const API_KEY = "euamobolaspeludas"; // mesma do backend
+
+      async function loadTasks() {
+        const res = await fetch("http://localhost:3000/tasks", {
+          headers: { "x-api-key": API_KEY },
+        });
+        const tasks = await res.json();
+        const list = document.getElementById("tasks");
+        list.innerHTML = tasks
+          .map(
+            (t) => `
+      <li>
+        ${t.title} - ${t.status} 
+        <button onclick="updateStatus(${t.id}, '${t.status}')">Alternar Status</button>
+        <button onclick="deleteTask(${t.id})">Excluir</button>
+      </li>
+    `
+          )
+          .join("");
+      }
+
+      async function addTask() {
+        const title = document.getElementById("title").value;
+        const desc = document.getElementById("description").value;
+
+        await fetch("http://localhost:3000/tasks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify({ title, description: desc }),
+        });
+
+        document.getElementById("title").value = "";
+        document.getElementById("description").value = "";
+        loadTasks();
+      }
+
+      async function updateStatus(id, currentStatus) {
+        const newStatus =
+          currentStatus === "pendente" ? "concluída" : "pendente";
+        await fetch(`http://localhost:3000/tasks/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        loadTasks();
+      }
+
+      async function deleteTask(id) {
+        await fetch(`http://localhost:3000/tasks/${id}`, {
+          method: "DELETE",
+          headers: { "x-api-key": API_KEY },
+        });
+        loadTasks();
+      }
+
+      async function getTaskById() {
+        const id = document.getElementById("taskId").value;
+        const result = document.getElementById("taskResult");
+        if (!id) return (result.textContent = "Por favor, digite um ID.");
+
+        const res = await fetch(`http://localhost:3000/tasks/${id}`, {
+          headers: { "x-api-key": API_KEY },
+        });
+
+        if (!res.ok) return (result.textContent = "Tarefa não encontrada.");
+
+        const task = await res.json();
+        result.textContent = `ID: ${task.id} | ${task.title} - ${task.status}`;
+      }
+
+      loadTasks();
+    </script>
+  </body>
+</html>
