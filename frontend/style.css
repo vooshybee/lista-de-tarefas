@@ -29,10 +29,23 @@ header nav a {
   color: #fff;
   text-decoration: none;
 }
+header nav button {
+  margin-left: 1rem;
+  padding: 0.4rem 0.8rem;
+  background: #ff4b4b;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.3s;
+}
+header nav button:hover {
+  background: #ff1f1f;
+}
 
 /* Hero fullscreen */
 .hero {
-  min-height: 100vh;
+  min-height: 50vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -41,6 +54,35 @@ header nav a {
 }
 .hero h2 { font-size: 2rem; }
 .hero p { font-size: 1.2rem; }
+
+/* Login */
+.login-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 2rem auto;
+  gap: 1rem;
+}
+.login-section input {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 250px;
+}
+.login-section button {
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  background: #222;
+  color: #fff;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.login-section button:hover {
+  background: #555;
+}
 
 /* Container centralizando tarefas */
 .task-container {
@@ -64,7 +106,6 @@ header nav a {
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
   text-align: center;
 }
-
 .task-section h2,
 .api-section h2 {
   margin-bottom: 1rem;
@@ -72,7 +113,7 @@ header nav a {
   color: #222;
 }
 
-/* Formulário */
+/* Formulário de tarefas */
 .task-section .form {
   display: flex;
   flex-direction: column;
@@ -145,6 +186,18 @@ footer {
   margin-top: 2rem;
 }
 
+.role-label {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #221515;
+  font-weight: bold;
+}
+
+.role-label.ADMIN { background: #ff4b4b; }
+.role-label.MANAGER { background: #4b8cff; }
+.role-label.VIEWER { background: #aaa; }
+
 /* Desktop first overrides */
 @media (min-width: 768px) {
   .task-section .form { 
@@ -153,5 +206,5 @@ footer {
     align-items: center; 
   }
   .task-section input { flex: 1; }
-  .task-section button { width: 150px; } /* <-- botão alinhado na direita */
+  .task-section button { width: 150px; } /* botão alinhado na direita */
 }

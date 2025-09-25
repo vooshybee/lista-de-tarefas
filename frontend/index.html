@@ -14,17 +14,28 @@
         <a href="#sobre">Sobre</a>
         <a href="#features">Recursos</a>
         <a href="#api">API</a>
+        <button onclick="logout()" id="logoutBtn" style="display: none">
+          Logout
+        </button>
       </nav>
     </header>
 
     <!-- Hero -->
     <section class="hero">
       <h2>Gerencie suas tarefas com facilidade</h2>
-      <p>API REST simples com Node.js, Express e banco SQLite/JSON</p>
+      <p>API REST simples com Node.js, Express e PostgreSQL</p>
+    </section>
+
+    <!-- Login -->
+    <section class="login-section">
+      <h2>Login</h2>
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Senha" />
+      <button onclick="login()">Entrar</button>
     </section>
 
     <!-- Container centralizado das tarefas -->
-    <section class="task-container">
+    <section class="task-container" style="display: none">
       <!-- Adicionar Tarefa -->
       <div class="task-section">
         <h2>Adicionar Tarefa</h2>
@@ -35,9 +46,9 @@
         </div>
       </div>
 
-      <!-- Exemplo de consumo da API / Lista de Tarefas -->
+      <!-- Lista de Tarefas -->
       <div class="api-section">
-        <h2>Exemplo de consumo da API</h2>
+        <h2>Minhas Tarefas</h2>
         <ul id="tasks"></ul>
       </div>
     </section>
@@ -49,35 +60,120 @@
       <div class="card">✏️ Atualizar & 🗑️ Excluir</div>
     </section>
 
+    <section
+      class="users-container"
+      style="
+        display: none;
+        flex-direction: column;
+        gap: 2rem;
+        align-items: center;
+        padding: 0 1rem;
+      "
+    >
+      <div class="users-section">
+        <h2>Gerenciar Usuários</h2>
+        <div class="form">
+          <input id="userName" placeholder="Nome" />
+          <input id="userEmail" placeholder="Email" />
+          <input id="userPassword" type="password" placeholder="Senha" />
+          <select id="userRole">
+            <option value="viewer">Viewer</option>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button onclick="addUser()">Criar Usuário</button>
+        </div>
+      </div>
+
+      <div class="api-section">
+        <h2>Usuários</h2>
+        <ul id="users"></ul>
+      </div>
+    </section>
+
     <!-- Footer -->
     <footer>
       <p>Feito para treinar rotas REST | 2025</p>
     </footer>
 
-    <!-- Scripts -->
     <script>
-      const API_KEY = "euamobolaspeludas"; // mesma do backend
+      // Função de login
+      async function login() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
 
+        const res = await fetch("http://localhost:3000/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!res.ok) return alert("Email ou senha inválidos");
+
+        const data = await res.json();
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("role", data.user.role);
+        localStorage.setItem("userId", data.user.id); // salva o id do usuário logado
+
+        document.querySelector(".login-section").style.display = "none";
+        document.querySelector(".task-container").style.display = "flex";
+        document.getElementById("logoutBtn").style.display = "inline-block";
+
+        loadTasks();
+        checkAdmin();
+      }
+
+      // Função de logout
+      function logout() {
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("userId");
+        document.querySelector(".login-section").style.display = "block";
+        document.querySelector(".task-container").style.display = "none";
+        document.getElementById("logoutBtn").style.display = "none";
+        document.getElementById("tasks").innerHTML = "";
+        window.location.reload();
+      }
+
+      // Função para carregar tarefas
       async function loadTasks() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
         const res = await fetch("http://localhost:3000/tasks", {
-          headers: { "x-api-key": API_KEY },
+          headers: { Authorization: `Bearer ${token}` },
         });
         const tasks = await res.json();
         const list = document.getElementById("tasks");
+
+        const role = localStorage.getItem("role");
         list.innerHTML = tasks
-          .map(
-            (t) => `
+          .map((t) => {
+            const canDelete = role === "admin" || role === "manager";
+            return `
       <li>
-        ${t.title} - ${t.status} 
-        <button onclick="updateStatus(${t.id}, '${t.status}')">Alternar Status</button>
-        <button onclick="deleteTask(${t.id})">Excluir</button>
+        <strong>${t.title}</strong> - <em>${t.status}</em>
+        <p>${t.description || "Sem descrição"}</p>
+        <button onclick="updateStatus(${t.id}, '${
+              t.status
+            }')">Alternar Status</button>
+        ${
+          canDelete
+            ? `<button onclick="deleteTask(${t.id})">Excluir</button>`
+            : ""
+        }
       </li>
-    `
-          )
+    `;
+          })
           .join("");
+        checkAdmin();
       }
 
+      // Função para adicionar tarefa
       async function addTask() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
         const title = document.getElementById("title").value;
         const desc = document.getElementById("description").value;
 
@@ -85,7 +181,7 @@
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": API_KEY,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ title, description: desc }),
         });
@@ -95,44 +191,123 @@
         loadTasks();
       }
 
+      // Atualizar status da tarefa
       async function updateStatus(id, currentStatus) {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
         const newStatus =
           currentStatus === "pendente" ? "concluída" : "pendente";
         await fetch(`http://localhost:3000/tasks/${id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": API_KEY,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ status: newStatus }),
         });
+
         loadTasks();
       }
 
+      // Excluir tarefa
       async function deleteTask(id) {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
         await fetch(`http://localhost:3000/tasks/${id}`, {
           method: "DELETE",
-          headers: { "x-api-key": API_KEY },
+          headers: { Authorization: `Bearer ${token}` },
         });
+
         loadTasks();
       }
 
-      async function getTaskById() {
-        const id = document.getElementById("taskId").value;
-        const result = document.getElementById("taskResult");
-        if (!id) return (result.textContent = "Por favor, digite um ID.");
+      // Carregar usuários (apenas admin)
+      async function loadUsers() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
 
-        const res = await fetch(`http://localhost:3000/tasks/${id}`, {
-          headers: { "x-api-key": API_KEY },
+        const res = await fetch("http://localhost:3000/users", {
+          headers: { Authorization: `Bearer ${token}` },
         });
+        const users = await res.json();
+        const list = document.getElementById("users");
 
-        if (!res.ok) return (result.textContent = "Tarefa não encontrada.");
+        const currentUserId = parseInt(localStorage.getItem("userId")); // id do usuário logado
 
-        const task = await res.json();
-        result.textContent = `ID: ${task.id} | ${task.title} - ${task.status}`;
+        list.innerHTML = users
+          .map((u) => {
+            const canDelete = u.id !== currentUserId; // não pode deletar a si mesmo
+            return `
+        <li>
+          <strong>${u.name}</strong> (<em>${u.email}</em>) 
+          - <span class="role-label ${u.role.toUpperCase()}">${u.role.toUpperCase()}</span>
+          ${
+            canDelete
+              ? `<button onclick="deleteUser(${u.id})">Excluir</button>`
+              : ""
+          }
+        </li>
+      `;
+          })
+          .join("");
       }
 
-      loadTasks();
+      // Criar usuário
+      async function addUser() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const name = document.getElementById("userName").value;
+        const email = document.getElementById("userEmail").value;
+        const password = document.getElementById("userPassword").value;
+        const role = document.getElementById("userRole").value;
+
+        await fetch("http://localhost:3000/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name, email, password, role }),
+        });
+
+        document.getElementById("userName").value = "";
+        document.getElementById("userEmail").value = "";
+        document.getElementById("userPassword").value = "";
+        loadUsers();
+      }
+
+      // Deletar usuário
+      async function deleteUser(id) {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        await fetch(`http://localhost:3000/users/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        loadUsers();
+      }
+
+      // Mostrar área de admin se role for "admin"
+      function checkAdmin() {
+        const role = localStorage.getItem("role");
+        if (role === "admin") {
+          document.querySelector(".users-container").style.display = "flex";
+          loadUsers();
+        }
+      }
+
+      // Carrega tarefas automaticamente se já estiver logado
+      if (localStorage.getItem("token")) {
+        document.querySelector(".login-section").style.display = "none";
+        document.querySelector(".task-container").style.display = "flex";
+        document.getElementById("logoutBtn").style.display = "inline-block";
+        loadTasks();
+      }
     </script>
   </body>
 </html>
