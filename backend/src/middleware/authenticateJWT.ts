@@ -15,7 +15,7 @@ export function authenticateJWT(req: Request, res: Response, next: NextFunction)
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-    req.user = { id: payload.id, role: payload.role }; // anexando user ao req
+    req.user = { id: payload.id, role: payload.role }; // Anexando user ao req
     next();
   } catch {
     return res.status(403).json({ error: "Token inválido ou expirado" });
