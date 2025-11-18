@@ -1,53 +1,75 @@
 import { Router } from "express";
-import { pool } from "../db";
 import { authorize } from "../middleware/authorize";
+import { DatabaseAdapterSingleton } from "../patterns/adapter/DatabaseAdapter";
+import { TaskValidatorFactory } from "../patterns/factory/TaskValidatorFactory";
 
 const router = Router();
+const db = DatabaseAdapterSingleton.getInstance();
+
+// Factory Pattern: Cria validador baseado no tipo (pode ser configurado via env)
+const validatorType = (process.env.TASK_VALIDATOR_TYPE as 'basic' | 'strict') || 'basic';
+const taskValidator = TaskValidatorFactory.create(validatorType);
 
 router.get("/", authorize(["admin","manager","viewer"]), async (_req, res) => {
-  const result = await pool.query("SELECT * FROM tasks ORDER BY id DESC");
-  res.json(result.rows);
+  const tasks = await db.findAll("tasks", "id DESC");
+  res.json(tasks);
 });
 
 router.get("/:id", authorize(["admin","manager","viewer"]), async (req, res) => {
   const id = parseInt(req.params.id);
-  const result = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
-  if (result.rows.length === 0) return res.status(404).json({ error: "Tarefa não encontrada" });
-  res.json(result.rows[0]);
+  const task = await db.findById("tasks", id);
+  if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
+  res.json(task);
 });
 
 router.post("/", authorize(["admin","manager"]), async (req, res) => {
   const { title, description } = req.body;
-  if (!title) return res.status(400).json({ error: "Título é obrigatório" });
+  
+  // Factory Pattern: Usa o validador criado pela factory
+  const validation = taskValidator.validate(title, description);
+  if (!validation.isValid) {
+    return res.status(400).json({ error: validation.error });
+  }
 
-  const result = await pool.query(
-    "INSERT INTO tasks (title, description) VALUES ($1, $2) RETURNING *",
-    [title, description]
-  );
-
-  res.status(201).json(result.rows[0]);
+  // Adapter Pattern: Usa o adapter para inserir no banco
+  const task = await db.insert("tasks", { title, description });
+  res.status(201).json(task);
 });
 
 router.put("/:id", authorize(["admin","manager"]), async (req, res) => {
   const id = parseInt(req.params.id);
   const { title, description, status } = req.body;
 
-  const existing = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
-  if (existing.rows.length === 0) return res.status(404).json({ error: "Tarefa não encontrada" });
+  // Adapter Pattern: Usa o adapter para buscar e atualizar
+  const existing = await db.findById("tasks", id);
+  if (!existing) return res.status(404).json({ error: "Tarefa não encontrada" });
 
-  const tarefa = existing.rows[0];
-  const result = await pool.query(
-    "UPDATE tasks SET title=$1, description=$2, status=$3 WHERE id=$4 RETURNING *",
-    [title ?? tarefa.title, description ?? tarefa.description, status ?? tarefa.status, id]
-  );
+  const updateData: Record<string, any> = {};
+  if (title !== undefined) updateData.title = title;
+  if (description !== undefined) updateData.description = description;
+  if (status !== undefined) updateData.status = status;
 
-  res.json(result.rows[0]);
+  // Valida apenas se title ou description foram fornecidos
+  if (title !== undefined || description !== undefined) {
+    const validation = taskValidator.validate(
+      title ?? existing.title,
+      description ?? existing.description
+    );
+    if (!validation.isValid) {
+      return res.status(400).json({ error: validation.error });
+    }
+  }
+
+  const updated = await db.update("tasks", id, updateData);
+  res.json(updated);
 });
 
 router.delete("/:id", authorize(["admin","manager"]), async (req, res) => {
   const id = parseInt(req.params.id);
-  const result = await pool.query("DELETE FROM tasks WHERE id = $1 RETURNING *", [id]);
-  if (result.rowCount === 0) return res.status(404).json({ error: "Tarefa não encontrada" });
+  
+  // Adapter Pattern: Usa o adapter para deletar
+  const deleted = await db.delete("tasks", id);
+  if (!deleted) return res.status(404).json({ error: "Tarefa não encontrada" });
 
   res.json({ message: "Tarefa removida com sucesso" });
 });
