@@ -25,6 +25,8 @@ npm run dev
 ```bash
 cd frontend
 npx serve .
+Caso não dê certo
+abra o arquivo index.html na pasta do projeto
 ```
 
 ## 📖 Documentação
